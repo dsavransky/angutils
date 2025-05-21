@@ -1,15 +1,17 @@
 import numpy as np
 import numpy.typing as npt
-from typing import Union, List, Tuple
+from typing import Union, List, Tuple, Annotated, Literal, TypeVar
 
 np.float_ = np.float64  # for numpy 2 compatibility
 intIterable = Union[List[int], Tuple[int], npt.NDArray[np.int_]]
 floatIterable = Union[List[float], Tuple[float], npt.NDArray[np.float_]]
+DType = TypeVar("DType", bound=np.generic)
+Array3x3 = Annotated[npt.NDArray[DType], Literal[3, 3]]
 
 
 def rotMat(axis: int, angle: float) -> npt.NDArray[np.float_]:
-    """Returns the DCM ({}^B C^A) for a frame rotation of angle about
-    the specified axis
+    r"""Returns the DCM :math:`{}^\mathcal{B}C^\mathcal{A}` for a rotation of the given
+    angle about the specified axis of frame :math:`\mathcal{A}`
 
     Args:
         axis (int):
@@ -95,9 +97,10 @@ def colVec(n: npt.ArrayLike) -> npt.NDArray[np.float_]:
     return n
 
 
-def calcDCM(n: npt.ArrayLike, th: float) -> npt.NDArray[np.float_]:
-    """Rodrigues formula: Calculates the DCM ({}^A C^B) for a rotation of angle th about
-    an axis n
+def calcDCM(n: floatIterable, th: float) -> npt.NDArray[np.float_]:
+    r"""Rodrigues formula: Calculates the DCM :math:`{}^\mathcal{A}C^\mathcal{B}` for a
+    rotation of the given angle about a given axis.  This is a generalization of
+    :py:meth:`rotMat`.
 
     Args:
         n (iterable):
@@ -109,23 +112,29 @@ def calcDCM(n: npt.ArrayLike, th: float) -> npt.NDArray[np.float_]:
         numpy.ndarray:
             3x3 rotation matrix
 
+    .. note::
+        ``n`` need not be normalized - it will automatically be transformed to a unit
+        vector as part of the calculation.
+
     """
 
-    n = vnorm(colVec(n))
+    n1 = vnorm(colVec(n))
 
-    DCM = np.eye(3) * np.cos(th) + (1 - np.cos(th)) * n * n.T + skew(n) * np.sin(th)
+    DCM: npt.NDArray[np.float_] = (
+        np.eye(3) * np.cos(th) + (1 - np.cos(th)) * n1 * n1.T + skew(n1) * np.sin(th)
+    )
 
     return DCM
 
 
-def DCM2axang(DCM: npt.NDArray[np.float_]) -> tuple:
+def DCM2axang(DCM: npt.NDArray[np.float_]) -> Tuple[npt.NDArray[np.float_], float]:
     r"""Given a direction cosine matrix :math:`{}^\mathcal{B}C^\mathcal{A}` compute
-    the axis and angle of the rotation.  Inverse of `calcDCM`.
+    the axis and angle of the rotation.  Inverse of :py:meth:`calcDCM`.
 
     Args:
         DCM (numpy.ndarray):
-            3x3 Direction cosine matrix transforming vector components from frame A to
-            frame B
+            3x3 Direction cosine matrix transforming vector components from frame
+            :math:`\mathcal{A}` to frame :math:`\mathcal{B}`.
 
     Returns:
         tuple:
@@ -188,7 +197,9 @@ def calcang(x: npt.ArrayLike, y: npt.ArrayLike, z: npt.ArrayLike) -> float:
     )
     t2 = np.matmul(x.T, y)[0][0]
 
-    return np.arctan2(t1, t2)
+    ang: float = np.arctan2(t1, t2)
+
+    return ang
 
 
 def projplane(
@@ -209,7 +220,9 @@ def projplane(
     """
     nv = vnorm(nv.flatten())
 
-    projv = v - np.vstack([np.dot(x, nv.flatten()) * nv for x in v.T]).T
+    projv: npt.NDArray[np.float_] = (
+        v - np.vstack([np.dot(x, nv.flatten()) * nv for x in v.T]).T
+    )
 
     return projv
 
@@ -220,9 +233,14 @@ def validateEulerAngSet(rotSet: intIterable) -> int:
     Args:
         rotSet (iterable):
             3-element iterable defining order of rotations of a body Euler angle set.
-            For example, a Body-2 3-1-3 rotation would be [3,1,3] and a Body-3 3-2-1
-            rotation would be [3,2,1].
+            Indexing is 1-based, so valid rotation sets may only contains 1, 2, or 3.
+            A valid rotation set contains exactly 3 elements, at least 2 of which are
+            distinct, and with no rotations about the same axis repeated in a row.
+            [1, 2, 3] and [1, 3, 1] are valid, but [1, 1, 2] is not.
 
+    Returns:
+        int:
+            Number of unique axes used in rotation (2 or 3).
 
     """
     # ensure rotation set if valid
@@ -252,12 +270,11 @@ def EulerAng2DCM(
 
 
     Args:
-        rotSet (Iterable):
+        rotSet (iterable):
             3-element iterable defining order of rotations of a body Euler angle set.
-            For example, a Body-2 3-1-3 rotation would be [3,1,3] and a Body-3 3-2-1
-            rotation would be [3,2,1].
-        angs (Iterable):
-            3-elements iterable of symbols or expressions defining the angle of each
+            See :py:meth:`validateEulerAngSet`.
+        angs (iterable):
+            3-element iterable of symbols or expressions defining the angle of each
             rotation.
         body (bool):
             True for body rotations, False for space rotations. Defaults to True.
@@ -283,23 +300,23 @@ def EulerAng2DCM(
     return DCM
 
 
-def DCM2EulerAng(DCM, rotSet, body=True):
+def DCM2EulerAng(
+    DCM: npt.NDArray[np.float_], rotSet: intIterable, body: bool = True
+) -> List[float]:
     """
 
     Args:
-        DCM (sympy.matrices.dense.MutableDenseMatrix):
+        DCM (numpy.ndarray):
             Direction Cosine Matrix
         rotSet (iterable):
             3-element iterable defining order of rotations of a body Euler angle set.
-            Indexing is 1-based, so valid rotation sets may only contains 1, 2, or 3.
-            A valid rotation set contains exactly 3 elements, at least 2 of which are
-            distinct, and with no rotations about the same axis repeated in a row.
-            [1, 2, 3] and [1, 3, 1] are valid, but [1, 1, 2] is not.
+            See :py:meth:`validateEulerAngSet`.
         body (bool):
             True for body rotations, False for space rotations. Defaults to True.
 
     Returns:
-
+        list:
+            List of the three computed angles
 
     """
     # ensure rotation set if valid
@@ -328,14 +345,14 @@ def DCM2EulerAng(DCM, rotSet, body=True):
         # first take care of the negative
         A = DCM.copy()
         negval = {1: (2, 1), 2: (0, 2), 3: (1, 0)}
-        A[negval[rotSet[1]]] *= -1
+        A[negval[rotSet[1]]] *= -1  # type: ignore
 
         # if this is a space rotation, transpose the matrix
         if not body:
             A = A.T
 
         # compute element missing from rotation set
-        p = 5 - (rotSet[0] + rotSet[1])
+        p = 5 - (rotSet[0] + rotSet[1])  # type: ignore
 
         costh2 = A[i, i]  # cos(\theta_2)
         sinth2 = np.sqrt(A[p, i] ** 2 + A[j, i] ** 2)  # sin(\theta_2)

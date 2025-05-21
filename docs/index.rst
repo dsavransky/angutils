@@ -20,9 +20,39 @@ To install from source, clone or download the code repository, and, in the top l
     pip install .
 
 
+Notational Conventions
+==========================
+The following notational conventions are adopted throughout the code and documentation:
+
+* All matrices are represented by uppercase unbolded letters (:math:`A`)
+* All vectors are represented by lowercase bolded letters (:math:`\mathbf v`). All vectors are assumed to be Euclidean (:math:`\mathbb{R}^3`)
+* Unit vectors are represented by lowercase bolded letters with hats (:math:`{\hat{\mathbf{v}}}` is the unit vector of :math:`\mathbf v`)
+* Vector norms are denoted by :math:`\Vert \mathbf v \Vert` such that :math:`\mathbf v = \Vert \mathbf v \Vert {\hat{\mathbf{v}}}`
+* Reference frames are represented by calligraphic capital letters (:math:`\mathcal A`) and defined by a  set of three mutually orthogonal unit vectors such that  :math:`\mathcal A = ({\hat{\mathbf{a}}}_1, {\hat{\mathbf{a}}}_2, {\hat{\mathbf{a}}}_3)` implies that :math:`{\hat{\mathbf{a}}}_1\times {\hat{\mathbf{a}}}_2 = {\hat{\mathbf{a}}_3}`. All reference frames are dextral
+* The component representation of any vector :math:`\mathbf v` in reference frame :math:`\mathcal I` is given by :math:`[\mathbf v]_\mathcal I` and is assumed to be a (3x1) column matrix
+* Direction cosine matrices (DCMs) are defined as :math:`{{\vphantom{C}}^{\mathcal{B}}\!{C}^{\mathcal{A}}}` such that:
+
+  .. math::
+    [\mathbf v]_\mathcal B = {{\vphantom{C}}^{\mathcal{B}}\!{C}^{\mathcal{A}}}[\mathbf v]_\mathcal A
+* The inverse of a direction cosine matrix is its transpose and is denoted by switching the order of the superscripts: 
+  
+  .. math::
+    \left({{\vphantom{C}}^{\mathcal{B}}\!{C}^{\mathcal{A}}}\right)^{-1} \equiv \left({{\vphantom{C}}^{\mathcal{B}}\!{C}^{\mathcal{A}}}\right)^T = {{\vphantom{C}}^{\mathcal{A}}\!{C}^{\mathcal{B}}}
+
+Relationship Between DCMs and Rotation Matrices
+=================================================
+This often causes a lot of confusion, as DCMs and 3D rotation matrices have essentially the same form and content, but serve different purposes.  A DCM maps the components of a vector expressed in one reference frame to components of the same vector expressed in a different reference frame (this is equivalent to a change of basis).  A rotation matrix operates on the components of a vector in one reference frames to return the components of a different vector in the same frame (the new vector is rotated from the original vector by the angle encoded by the rotation matrix and has the same magnitude as the original vector). 
+
+The action of the DCM is encoded in the notational conventions, above.  The rotation matrix can best be understood by positing a dyadic (second-order tensor) :math:`\mathbb{R}` such that:
+
+.. math::
+   \mathbf{b} = \mathbb{R} \cdot \mathbf{a}
+
+where :math:`\mathbf{b}` is :math:`\mathbf{a}`, rotated by some angle :\math:`\theta` about an axis :math:`\mathbf{\hat{n}}`.  If we express :math:`\mathbb{R}` in components of some frame :math:`\mathcal{A}`, then we get a matrix whose contents match the DCM :math:`{{\vphantom{C}}^{\mathcal{A}}\!{C}^{\mathcal{B}}}`. Thus, rotation matrices and DCMs are essentially transposes of one another.
+
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 4
    :caption: Contents:
 
-   modules
+   angutils
 
