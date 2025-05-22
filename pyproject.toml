@@ -123,3 +123,9 @@ docstring-code-line-length = "dynamic"
 
 [tool.black]
 line-length = 88
+
+[tool.coverage.run]
+omit = [
+    # omit tests
+    "tests/*",
+    ]
