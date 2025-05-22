@@ -48,11 +48,11 @@ The action of the DCM is encoded in the notational conventions, above.  The rota
 .. math::
    \mathbf{b} = \mathbb{R} \cdot \mathbf{a}
 
-where :math:`\mathbf{b}` is :math:`\mathbf{a}`, rotated by some angle :\math:`\theta` about an axis :math:`\mathbf{\hat{n}}`.  If we express :math:`\mathbb{R}` in components of some frame :math:`\mathcal{A}`, then we get a matrix whose contents match the DCM :math:`{{\vphantom{C}}^{\mathcal{A}}\!{C}^{\mathcal{B}}}`. Thus, rotation matrices and DCMs are essentially transposes of one another.
+where :math:`\mathbf{b}` is :math:`\mathbf{a}`, rotated by some angle :math:`\theta` about an axis :math:`\mathbf{\hat{n}}`.  If we express :math:`\mathbb{R}` in components of some frame :math:`\mathcal{A}`, then we get a matrix whose contents match the DCM :math:`{{\vphantom{C}}^{\mathcal{A}}\!{C}^{\mathcal{B}}}`. Thus, rotation matrices and DCMs are essentially transposes of one another.
 
 .. toctree::
    :maxdepth: 4
-   :caption: Contents:
+   :caption: API:
 
    angutils
 
