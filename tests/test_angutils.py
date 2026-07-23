@@ -11,6 +11,8 @@ from angutils.angutils import (
     projplane,
     EulerAng2DCM,
     DCM2EulerAng,
+    cart2sphere,
+    sphere2cart,
 )
 
 
@@ -105,6 +107,23 @@ class TestAngUtils(unittest.TestCase):
             angsout = DCM2EulerAng(DCM, rotSet, body=False)
             DCM2 = EulerAng2DCM(rotSet, angsout, body=False)
             self.assertTrue(np.max(np.abs(DCM - DCM2)) < tol)
+
+    def test_sphere_roundtrip(self):
+        """Test that sphere2cart and cart2sphere are true inverses of one another"""
+
+        # generate random azimuth and zenith angles
+        N = int(1000)
+        lams = np.random.rand(N) * 2 * np.pi - np.pi
+        phis = np.random.rand(N) * np.pi - np.pi / 2
+
+        # check the roundtrip
+        tol = 1e-14
+        for lam, phi in zip(lams, phis):
+            v = sphere2cart(lam, phi)
+            lam1, phi1 = cart2sphere(v)
+
+            self.assertTrue(np.abs(lam - lam1) < tol)
+            self.assertTrue(np.abs(phi - phi1) < tol)
 
     def test_skew(self):
         """Test skew-symmetric property for random inputs"""

@@ -77,6 +77,53 @@ def skew(v: npt.NDArray[np.float_]) -> npt.NDArray[np.float_]:
     return np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
 
 
+def cart2sphere(n: floatIterable) -> Tuple[float, float]:
+    """Convert vector to spherical angles. Inverse of :py:meth:`sphere2cart`.
+
+    Args:
+        n (iterable):
+            Component representation of a vector.  Must have 3 elements.
+
+    Returns:
+        tuple:
+            lam (float):
+                Azimuth angle (radians)
+            phi (float):
+                Zenith/polar angle (radians)
+
+    .. note::
+        ``n`` need not be normalized - it will automatically be transformed to a unit
+        vector as part of the calculation.
+
+    """
+    v = vnorm(colVec(n))
+
+    lam = np.arctan2(v[1], v[0])
+    phi = np.arctan2(v[2], np.sqrt(v[0] ** 2 + v[1] ** 2))
+
+    return lam, phi
+
+
+def sphere2cart(lam: float, phi: float) -> npt.NDArray[np.float_]:
+    """Convert spherical angles to unit vector.  Inverse of :py:meth:`cart2sphere`.
+
+    Args:
+        lam (float):
+            Azimuth angle (radians)
+        phi (float):
+            Zenith/polar angle (radians)
+
+    Returns:
+        numpy.ndarray:
+            3x1 unit vector
+
+    """
+
+    return np.vstack(
+        (np.cos(phi) * np.cos(lam), np.cos(phi) * np.sin(lam), np.sin(phi))
+    )
+
+
 def colVec(n: npt.ArrayLike) -> npt.NDArray[np.float_]:
     """Turn any 3-element iterable into a 3x1 column vector
 
