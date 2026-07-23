@@ -13,6 +13,8 @@ from angutils.angutils import (
     DCM2EulerAng,
     cart2sphere,
     sphere2cart,
+    forwardAzimuth,
+    genGreatCircle,
 )
 
 
@@ -165,6 +167,73 @@ class TestAngUtils(unittest.TestCase):
             y = np.matmul(calcDCM(z, th), x)
 
             self.assertTrue(np.abs(calcang(x, y, z) - th) < 1e-15)
+
+    def test_forwardAzimuth_cardinal(self):
+        """Test forwardAzimuth against exact cardinal-direction identities"""
+
+        start = sphere2cart(0, 0)
+        offsets = {
+            0: sphere2cart(0, 0.3),  # due north
+            np.pi / 2: sphere2cart(0.3, 0),  # due east
+            np.pi: sphere2cart(0, -0.3),  # due south
+            -np.pi / 2: sphere2cart(-0.3, 0),  # due west
+        }
+
+        tol = 1e-14
+        for expected, end in offsets.items():
+            cart = np.hstack((start, end))
+            th = forwardAzimuth(cart)
+            self.assertTrue(np.abs(th - expected) < tol)
+
+    def test_forwardAzimuth_roundtrip(self):
+        """Test forwardAzimuth against the closed-form great-circle bearing formula"""
+
+        N = int(1000)
+        lam1 = np.random.rand(N) * 2 * np.pi - np.pi
+        phi1 = np.random.rand(N) * np.pi - np.pi / 2
+        lam2 = np.random.rand(N) * 2 * np.pi - np.pi
+        phi2 = np.random.rand(N) * np.pi - np.pi / 2
+
+        tol = 1e-12
+        for l1, p1, l2, p2 in zip(lam1, phi1, lam2, phi2):
+            cart = np.hstack((sphere2cart(l1, p1), sphere2cart(l2, p2)))
+            th = forwardAzimuth(cart)
+
+            dlam = l2 - l1
+            y = np.sin(dlam) * np.cos(p2)
+            x = np.cos(p1) * np.sin(p2) - np.sin(p1) * np.cos(p2) * np.cos(dlam)
+            thref = np.arctan2(y, x)
+
+            self.assertTrue(np.abs(th - thref) < tol)
+
+    def test_genGreatCircle(self):
+        """Test that genGreatCircle produces a coplanar set of points passing near
+        both input points"""
+
+        npts = 1000
+        N = 100
+        dtol = 2 * np.pi / npts
+        planetol = 1e-12
+
+        for _ in range(N):
+            lam = np.random.rand(2) * 2 * np.pi - np.pi
+            phi = np.random.rand(2) * np.pi - np.pi / 2
+
+            cart = sphere2cart(lam, phi)
+            normal = np.cross(cart[:, 0], cart[:, 1])
+            normal = normal / np.linalg.norm(normal)
+
+            lamOut, phiOut = genGreatCircle(lam, phi, npts=npts)
+            circCart = sphere2cart(lamOut, phiOut)
+
+            # all output points must be coplanar with the start/end points
+            self.assertTrue(np.all(np.abs(np.dot(normal, circCart)) < planetol))
+
+            # the circle must pass close to both the start and end points
+            dstart = np.linalg.norm(circCart - cart[:, [0]], axis=0).min()
+            dend = np.linalg.norm(circCart - cart[:, [1]], axis=0).min()
+            self.assertTrue(dstart < dtol)
+            self.assertTrue(dend < dtol)
 
     def test_projplane(self):
         """Check dot product of output vector with orthogonal direction (should be
