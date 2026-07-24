@@ -77,6 +77,65 @@ def skew(v: npt.NDArray[np.float_]) -> npt.NDArray[np.float_]:
     return np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
 
 
+def cart2sphere(
+    n: npt.ArrayLike,
+) -> Tuple[Union[float, npt.NDArray[np.float_]], Union[float, npt.NDArray[np.float_]]]:
+    """Convert a vector, or an array of vectors, to spherical angles. Inverse of
+    :py:meth:`sphere2cart`.
+
+    Args:
+        n (array_like):
+            Component representation of a vector (3 elements), or a 3xN array of N
+            vectors as columns.
+
+    Returns:
+        tuple:
+            lam (float or numpy.ndarray):
+                Azimuth angle (radians). A scalar if ``n`` is a single vector,
+                otherwise a length-N array paired with ``n``'s columns.
+            phi (float or numpy.ndarray):
+                Zenith/polar angle (radians), paired with ``lam``.
+
+    .. note::
+        ``n`` need not be normalized - the result depends only on direction, not
+        magnitude.
+
+    """
+    n = np.asarray(n, dtype=float)
+    assert (
+        n.ndim in (1, 2) and n.shape[0] == 3
+    ), "n must be a 3-element vector or a 3xN array of vectors."
+
+    lam = np.arctan2(n[1], n[0])
+    phi = np.arctan2(n[2], np.sqrt(n[0] ** 2 + n[1] ** 2))
+
+    return lam, phi
+
+
+def sphere2cart(
+    lam: Union[float, floatIterable], phi: Union[float, floatIterable]
+) -> npt.NDArray[np.float_]:
+    """Convert spherical angle(s) to unit vector(s). Inverse of :py:meth:`cart2sphere`.
+
+    Args:
+        lam (float or iterable):
+            Azimuth angle(s) (radians). A scalar, or a length-N array-like to convert
+            N points at once.
+        phi (float or iterable):
+            Zenith/polar angle(s) (radians), paired elementwise with ``lam``.
+
+    Returns:
+        numpy.ndarray:
+            3x1 unit vector if ``lam``/``phi`` are scalars, or a 3xN array of N unit
+            vectors as columns if ``lam``/``phi`` are length-N array-likes.
+
+    """
+
+    return np.vstack(
+        (np.cos(phi) * np.cos(lam), np.cos(phi) * np.sin(lam), np.sin(phi))
+    )
+
+
 def colVec(n: npt.ArrayLike) -> npt.NDArray[np.float_]:
     """Turn any 3-element iterable into a 3x1 column vector
 
@@ -200,6 +259,112 @@ def calcang(x: npt.ArrayLike, y: npt.ArrayLike, z: npt.ArrayLike) -> float:
     ang: float = np.arctan2(t1, t2)
 
     return ang
+
+
+def forwardAzimuth(cart: npt.NDArray[np.float_]) -> float:
+    r"""Compute the forward azimuth (initial bearing) from a start point to an end
+    point on a unit sphere, measured from north (the frame's z-axis).
+
+    The azimuth is the angle between the great-circle plane through the start and
+    end points and the great-circle plane through the start point and the north
+    direction :math:`\mathbf{N} = (0, 0, 1)`, resolved into :math:`(-\pi, \pi]` via
+    ``arctan2`` with sign fixed relative to the start point (the local vertical).
+
+    Args:
+        cart (numpy.ndarray):
+            3x2 array of Cartesian point vectors. Column 0 is the start point,
+            column 1 is the end point.
+
+    Returns:
+        float:
+            Forward azimuth angle (radians), measured clockwise from north, in the
+            range :math:`(-\pi, \pi]`.
+
+    .. note::
+        ``cart``'s columns need not be normalized - the result depends only on their
+        directions, not their magnitudes. North is always assumed to be the frame's
+        z-axis.
+
+    .. note::
+        This is undefined (rather than an error) when the start and end points
+        coincide, or when the start point lies on the north/south pole - in both
+        cases, ``0.0`` is returned.
+
+    """
+
+    cart = np.asarray(cart, dtype=float)
+    assert cart.shape == (3, 2), "cart must be a 3x2 array of start/end point vectors."
+    assert np.all(
+        np.linalg.norm(cart, axis=0) > 0
+    ), "columns of cart must be nonzero vectors."
+
+    N = np.array([0, 0, 1])
+
+    c1 = np.cross(cart[:, 0], cart[:, 1])
+    c2 = np.cross(cart[:, 0], N)
+    tmp = np.cross(c1, c2)
+    sinth = np.linalg.norm(tmp) * np.sign(np.dot(tmp, cart[:, 0]))
+    costh = np.dot(c1, c2)
+    th: float = np.arctan2(sinth, costh)
+
+    return th
+
+
+def genGreatCircle(
+    lam: floatIterable, phi: floatIterable, npts: int = 1000
+) -> Tuple[npt.NDArray[np.float_], npt.NDArray[np.float_]]:
+    r"""Generate points sampled around the great circle passing through two points on
+    a unit sphere.
+
+    The circle is constructed by building the meridian great circle through the start
+    point (rotating the prototype meridian :math:`(\cos\theta, 0, \sin\theta)` about
+    the z-axis via :py:meth:`rotMat`), then rotating that meridian about the start
+    point's own position vector, via :py:meth:`calcDCM`, by the initial bearing
+    (:py:meth:`forwardAzimuth`) from the start point to the end point. The sampled
+    points are converted back to spherical angles via :py:meth:`cart2sphere`.
+
+    Args:
+        lam (iterable):
+            2-element iterable of azimuth angles (radians): ``lam[0]`` is the start
+            point, ``lam[1]`` is the end point.
+        phi (iterable):
+            2-element iterable of zenith angles (radians), paired with ``lam``.
+        npts (int):
+            Number of points to sample around the circle. Defaults to 1000.
+
+    Returns:
+        tuple:
+            lam (numpy.ndarray):
+                Azimuth angles (radians) of ``npts`` points sampled around the full
+                great circle.
+            phi (numpy.ndarray):
+                Zenith angles (radians) of ``npts`` points sampled around the full
+                great circle, paired with ``lam``.
+
+    .. note::
+        The output samples the entire great circle, not just the arc between the two
+        input points. Degenerate inputs (coincident start/end points, or a start point
+        at a pole) propagate the singularity behavior documented in
+        :py:meth:`forwardAzimuth`.
+
+    """
+
+    lam = np.asarray(lam, dtype=float)
+    phi = np.asarray(phi, dtype=float)
+    assert lam.size == 2 and phi.size == 2, "lam and phi must each have 2 elements."
+
+    cart = sphere2cart(lam, phi)
+    th = forwardAzimuth(cart)
+
+    ths = np.linspace(0, 2 * np.pi, npts)
+
+    circ3d = np.vstack((np.cos(ths), np.zeros(ths.size), np.sin(ths)))
+    circ3drot1 = np.dot(rotMat(3, -lam[0]), circ3d)
+    circ3drot2 = np.dot(calcDCM(cart[:, 0], th).T, circ3drot1)
+
+    lamOut, phiOut = cart2sphere(circ3drot2)
+
+    return lamOut, phiOut
 
 
 def projplane(
