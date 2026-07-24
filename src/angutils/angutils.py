@@ -77,45 +77,57 @@ def skew(v: npt.NDArray[np.float_]) -> npt.NDArray[np.float_]:
     return np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
 
 
-def cart2sphere(n: floatIterable) -> Tuple[float, float]:
-    """Convert vector to spherical angles. Inverse of :py:meth:`sphere2cart`.
+def cart2sphere(
+    n: npt.ArrayLike,
+) -> Tuple[Union[float, npt.NDArray[np.float_]], Union[float, npt.NDArray[np.float_]]]:
+    """Convert a vector, or an array of vectors, to spherical angles. Inverse of
+    :py:meth:`sphere2cart`.
 
     Args:
-        n (iterable):
-            Component representation of a vector.  Must have 3 elements.
+        n (array_like):
+            Component representation of a vector (3 elements), or a 3xN array of N
+            vectors as columns.
 
     Returns:
         tuple:
-            lam (float):
-                Azimuth angle (radians)
-            phi (float):
-                Zenith/polar angle (radians)
+            lam (float or numpy.ndarray):
+                Azimuth angle (radians). A scalar if ``n`` is a single vector,
+                otherwise a length-N array paired with ``n``'s columns.
+            phi (float or numpy.ndarray):
+                Zenith/polar angle (radians), paired with ``lam``.
 
     .. note::
-        ``n`` need not be normalized - it will automatically be transformed to a unit
-        vector as part of the calculation.
+        ``n`` need not be normalized - the result depends only on direction, not
+        magnitude.
 
     """
-    v = vnorm(colVec(n))
+    n = np.asarray(n, dtype=float)
+    assert (
+        n.ndim in (1, 2) and n.shape[0] == 3
+    ), "n must be a 3-element vector or a 3xN array of vectors."
 
-    lam = np.arctan2(v[1], v[0])
-    phi = np.arctan2(v[2], np.sqrt(v[0] ** 2 + v[1] ** 2))
+    lam = np.arctan2(n[1], n[0])
+    phi = np.arctan2(n[2], np.sqrt(n[0] ** 2 + n[1] ** 2))
 
     return lam, phi
 
 
-def sphere2cart(lam: float, phi: float) -> npt.NDArray[np.float_]:
-    """Convert spherical angles to unit vector.  Inverse of :py:meth:`cart2sphere`.
+def sphere2cart(
+    lam: Union[float, floatIterable], phi: Union[float, floatIterable]
+) -> npt.NDArray[np.float_]:
+    """Convert spherical angle(s) to unit vector(s). Inverse of :py:meth:`cart2sphere`.
 
     Args:
-        lam (float):
-            Azimuth angle (radians)
-        phi (float):
-            Zenith/polar angle (radians)
+        lam (float or iterable):
+            Azimuth angle(s) (radians). A scalar, or a length-N array-like to convert
+            N points at once.
+        phi (float or iterable):
+            Zenith/polar angle(s) (radians), paired elementwise with ``lam``.
 
     Returns:
         numpy.ndarray:
-            3x1 unit vector
+            3x1 unit vector if ``lam``/``phi`` are scalars, or a 3xN array of N unit
+            vectors as columns if ``lam``/``phi`` are length-N array-likes.
 
     """
 
@@ -308,7 +320,8 @@ def genGreatCircle(
     point (rotating the prototype meridian :math:`(\cos\theta, 0, \sin\theta)` about
     the z-axis via :py:meth:`rotMat`), then rotating that meridian about the start
     point's own position vector, via :py:meth:`calcDCM`, by the initial bearing
-    (:py:meth:`forwardAzimuth`) from the start point to the end point.
+    (:py:meth:`forwardAzimuth`) from the start point to the end point. The sampled
+    points are converted back to spherical angles via :py:meth:`cart2sphere`.
 
     Args:
         lam (iterable):
@@ -349,8 +362,7 @@ def genGreatCircle(
     circ3drot1 = np.dot(rotMat(3, -lam[0]), circ3d)
     circ3drot2 = np.dot(calcDCM(cart[:, 0], th).T, circ3drot1)
 
-    lamOut = np.arctan2(circ3drot2[1], circ3drot2[0])
-    phiOut = np.arctan2(circ3drot2[2], np.sqrt(circ3drot2[0] ** 2 + circ3drot2[1] ** 2))
+    lamOut, phiOut = cart2sphere(circ3drot2)
 
     return lamOut, phiOut
 

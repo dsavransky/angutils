@@ -111,14 +111,15 @@ class TestAngUtils(unittest.TestCase):
             self.assertTrue(np.max(np.abs(DCM - DCM2)) < tol)
 
     def test_sphere_roundtrip(self):
-        """Test that sphere2cart and cart2sphere are true inverses of one another"""
+        """Test that sphere2cart and cart2sphere are true inverses of one another, for
+        both scalar and array-like inputs"""
 
         # generate random azimuth and zenith angles
         N = int(1000)
         lams = np.random.rand(N) * 2 * np.pi - np.pi
         phis = np.random.rand(N) * np.pi - np.pi / 2
 
-        # check the roundtrip
+        # check the roundtrip, scalar inputs
         tol = 1e-14
         for lam, phi in zip(lams, phis):
             v = sphere2cart(lam, phi)
@@ -126,6 +127,13 @@ class TestAngUtils(unittest.TestCase):
 
             self.assertTrue(np.abs(lam - lam1) < tol)
             self.assertTrue(np.abs(phi - phi1) < tol)
+
+        # check the roundtrip, array-like inputs
+        cart = sphere2cart(lams, phis)
+        lams1, phis1 = cart2sphere(cart)
+
+        self.assertTrue(np.max(np.abs(lams - lams1)) < tol)
+        self.assertTrue(np.max(np.abs(phis - phis1)) < tol)
 
     def test_skew(self):
         """Test skew-symmetric property for random inputs"""
